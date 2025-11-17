@@ -1,0 +1,1 @@
+nuitka --standalone --enable-plugin=pyside6 --include-data-dir=assets=assets --windows-disable-console --windows-icon-from-ico="final_icon.ico" --output-filename=nutpad.exe nutpad2.py
