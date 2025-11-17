@@ -1,2 +1,2 @@
 # Nutpad
-I use notepad a lot and i got so sick of  my eyes getting assaulted by it's white color and the lack of tabs. but i also dont wanta bloated notepad app like VS code just for quick edits so I made this app.  I aimed to keep  it easy on the eyes as well as aethetically pleasing. 
+I use notepad a lot and got so sick of  my eyes getting assaulted by it having no dark mode and the lack of tabs, but I also dont wanta bloated notepad app like VS code just for quick edits so I made this app.  I aimed to keep  it easy on the eyes as well as aethetically pleasing. It can accept files as arguments (just drag the file to the app or just state the file in the terminal) and it can also accept strings as arguments if you want to automate a few things with it. 
