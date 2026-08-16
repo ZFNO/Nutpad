@@ -422,7 +422,7 @@ class Notepad(QMainWindow):
 
 
     def show_about(self):
-        QMessageBox.about(self, "About Notepad", "Version 1.02 A\nMade by Mark Laurence Ong.\n Github: ZFNO")
+        QMessageBox.about(self, "About Notepad", "Version 1.03 A\nMade by Mark Laurence Ong.\n Github: ZFNO")
 
     def current_tab(self) -> EditorTab:
         return self.tabs.currentWidget()
