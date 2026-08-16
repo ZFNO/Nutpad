@@ -5,9 +5,13 @@
 *.avi
 *.srt
 chunk_*
+
+
 *.dist
 *.build
 *.dist/
+nutpad2.dist/
+build 
 nutpad_live.dist
 *.build/
 __pycache__/

@@ -2,15 +2,17 @@ import re
 import socket
 import sys
 import os
+
+
 import tempfile
 from datetime import datetime
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTextEdit, QFileDialog,
     QMessageBox, QFontDialog, QColorDialog, QStatusBar,
-    QMenu, QTabWidget, QWidget, QVBoxLayout, QSplashScreen
+    QMenu, QTabWidget, QWidget, QVBoxLayout, QSplashScreen, QPlainTextEdit, QHBoxLayout,QLabel
 )
-from PySide6.QtGui import QAction, QKeySequence, QColor, QPalette, QTextCursor, QFontDatabase, QPixmap
-from PySide6.QtCore import Qt, QEvent, QTimer, Signal, QObject
+from PySide6.QtGui import QAction, QKeySequence, QColor, QPalette, QTextCursor, QFontDatabase, QPixmap,QPainter,QTextFormat,QFont,QResizeEvent
+from PySide6.QtCore import Qt, QEvent, QTimer, Signal, QObject, QSize,QPoint
 import pyperclip
 import threading
 import time
@@ -24,6 +26,15 @@ from watchdog.events import FileSystemEventHandler
 
 PORT = 12345
 HOST = '127.0.0.1'
+
+import sys, os
+
+def app_base_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 
 def ensure_benguiat_font():
     fonts = QFontDatabase.families()
@@ -91,11 +102,51 @@ def run_server(notepad):
             notepad.newTabRequested.emit(data)
         conn.close()
 
+class LineNumberArea(QWidget):
+    def __init__(self, tab):
+        super().__init__(tab.editor)
+        self.tab = tab
+        self.setFont(QFont("arial"))
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+    def sizeHint(self):
+        return QSize(self.tab.line_number_area_width(), 0)
+
+    def paintEvent(self, event):
+        self.tab.line_number_area_paint_event(event)
+
 class EditorTab(QWidget):
     def __init__(self, parent=None, notepad=None):    
         super().__init__(parent)
         self.notepad = notepad
         self.editor = QTextEdit()
+        self.editor.setProperty("cssClass", "textEditor")
+        
+        self.path_label = QLabel()
+        self.path_label.setProperty("cssClass", "pathBar")
+        self.path_label.mousePressEvent = self.copy_path_to_clipboard
+        self.path_label.setFixedHeight(18)
+
+   
+        self.path_label.setAttribute(Qt.WA_Hover, True)
+        self.path_label.setMouseTracking(True)
+        self.path_label.setCursor(Qt.PointingHandCursor)
+        self.path_label.hide()  
+        
+        #self.line_number_area = LineNumberArea(self.editor)
+        self.line_number_area = LineNumberArea(self)  # new
+        self.line_number_area.setProperty("cssClass", "lineNumbers")
+        self.line_numbers_visible = True
+        self.editor.document().blockCountChanged.connect(lambda _: self.update_line_number_area_width(0))
+        self.editor.document().blockCountChanged.connect(lambda _: self.line_number_area.update())
+        self.editor.document().blockCountChanged.connect(self.update_line_number_area_width)
+        self.editor.cursorPositionChanged.connect(self.highlight_current_line)
+        self.editor.verticalScrollBar().valueChanged.connect(self.line_number_area.update)
+        self.editor.textChanged.connect(self.line_number_area.update)
+        
+  
+        
+        self.update_line_number_area_width(0)
         self.font_size = 12
         font = self.editor.font()
         font.setPointSize(self.font_size)
@@ -115,8 +166,9 @@ class EditorTab(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.path_label)
         layout.addWidget(self.editor)
-
+        
         self._apply_theme()
         self._set_word_wrap(True)
 
@@ -135,6 +187,85 @@ class EditorTab(QWidget):
         self.word_wrap = wrap
         self.editor.setLineWrapMode(QTextEdit.WidgetWidth if wrap else QTextEdit.NoWrap)
 
+
+    def copy_path_to_clipboard(self, event):
+        
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.path)
+        
+        self.notepad.status.showMessage("File path copied!", 2000)  # Show 2 sec
+
+    def update_path_label(self):
+        if self.path:
+            self.path_label.setText(self.path)
+            self.path_label.show()
+        else:
+            self.path_label.hide()
+    
+    def line_number_area_width(self):
+        #digits = len(str(max(1, self.editor.blockCount())))
+        digits = len(str(max(1, self.editor.document().blockCount())))
+        return 18 + self.fontMetrics().horizontalAdvance('9') * digits
+    
+    def update_line_number_area_width(self, _):
+        if self.line_numbers_visible:
+            width = self.line_number_area_width()
+        else:
+            width = 0
+        self.line_number_area.setFixedWidth(width)
+        self.editor.setViewportMargins(width, 0, 0, 0)
+    
+    def update_line_number_area(self, rect, dy):
+        if dy:
+            self.line_number_area.scroll(0, dy)
+        else:
+            self.line_number_area.update(0, rect.y(), self.line_number_area.width(), rect.height())
+        if rect.contains(self.editor.viewport().rect()):
+            self.update_line_number_area_width(0)
+    
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.editor.contentsRect()
+        self.line_number_area.setGeometry(cr.left(), cr.top(), self.line_number_area_width(), cr.height())
+    
+    def line_number_area_paint_event(self, event):
+        painter = QPainter(self.line_number_area)
+        painter.fillRect(event.rect(), QColor("#2e2e2e"))
+        top_left = self.editor.cursorForPosition(QPoint(0, 0))
+        block = top_left.block()
+        block_number = block.blockNumber()
+        cursor = QTextCursor(block)
+        rect = self.editor.cursorRect(cursor)
+        y = rect.top()
+        bottom = event.rect().bottom()
+    
+        while block.isValid() and y <= bottom:
+            #painter.setPen(QColor("#cc7722"))
+            painter.setPen(self.line_number_area.palette().color(QPalette.Text))
+            line_height = self.editor.fontMetrics().height()
+            painter.drawText(0, y, self.line_number_area.width() - 5, line_height,
+                             Qt.AlignRight | Qt.AlignVCenter, str(block_number + 1))
+            block = block.next()
+            if block.isValid():
+                cursor = QTextCursor(block)
+                rect = self.editor.cursorRect(cursor)
+                y = rect.top()
+                block_number += 1
+    
+    def highlight_current_line(self):
+        extra_selections = []
+        if not self.editor.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            line_color = QColor("#3a3a3a")
+            selection.format.setBackground(line_color)
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.editor.textCursor()
+            selection.cursor.clearSelection()
+            extra_selections.append(selection)
+        self.editor.setExtraSelections(extra_selections)
+        self.line_number_area.update()
+
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.Wheel and event.modifiers() == Qt.ControlModifier:
             delta = event.angleDelta().y()
@@ -143,6 +274,14 @@ class EditorTab(QWidget):
             size = max(5, min(size, 72))
             font.setPointSize(size)
             self.editor.setFont(font)
+    
+            # Add these lines:
+            linenumberfont = QFont("Arial",11)
+            self.line_number_area.setFont(linenumberfont)
+            self.update_line_number_area_width(0)
+            self.line_number_area.update()
+            self.resizeEvent(QResizeEvent(self.size(), self.size()))
+    
             return True
         return super().eventFilter(source, event)
 
@@ -246,6 +385,14 @@ class Notepad(QMainWindow):
         self.tabs.currentChanged.connect(self.update_title_and_status)
         self.setCentralWidget(self.tabs)
 
+
+        
+
+
+        
+
+
+
         self.status = QStatusBar()
         self.setStatusBar(self.status)
 
@@ -271,6 +418,8 @@ class Notepad(QMainWindow):
         self.bringToFront.connect(self.bring_to_front)
 
         self.last_notification_time = {}  # <<--- Add this line
+
+
 
     def show_about(self):
         QMessageBox.about(self, "About Notepad", "Version 1.02 A\nMade by Mark Laurence Ong.\n Github: ZFNO")
@@ -341,9 +490,22 @@ class Notepad(QMainWindow):
         self.fg_action.triggered.connect(self.set_text_color)
         
         # Watchdog actions
+        self.watchdog_action = QAction("Monitor File for External Changes  ", self)
+        self.watchdog_action.setCheckable(True)
+        self.watchdog_action.setChecked(False)
+        self.watchdog_action.triggered.connect(self.toggle_watchdog)
+        
+        
+        self.toggle_lines_action = QAction("Show Line Numbers", self)
+        self.toggle_lines_action.setCheckable(True)
+        self.toggle_lines_action.setChecked(True)
+        self.toggle_lines_action.setShortcut(QKeySequence("Ctrl+L"))
+        self.toggle_lines_action.triggered.connect(self.toggle_line_numbers)
+        
         self.watchdog_action = QAction("Monitor File for External Changes", self)
         self.watchdog_action.setCheckable(True)
         self.watchdog_action.setChecked(False)
+        self.watchdog_action.setShortcut(QKeySequence("Ctrl+K"))
         self.watchdog_action.triggered.connect(self.toggle_watchdog)
 
     def _create_menu(self):
@@ -365,15 +527,26 @@ class Notepad(QMainWindow):
         theme_menu.addAction(self.bg_action)
         theme_menu.addAction(self.fg_action)
         format_menu.addMenu(theme_menu)
+      
+        view_menu = menubar.addMenu("View")
+        view_menu.addAction(self.toggle_lines_action)
         
-        # Add watchdog to Tools menu
         tools_menu = menubar.addMenu("Tools")
-        tools_menu.addAction(self.watchdog_action)
+        tools_menu.addAction(self.watchdog_action) 
+        
+
 
         about_menu = menubar.addMenu("Help")
         about_action = QAction("About", self)
         about_action.triggered.connect(self.show_about)
         about_menu.addAction(about_action)
+
+    def toggle_line_numbers(self, checked):
+        tab = self.current_tab()
+        if tab:
+            tab.line_numbers_visible = checked
+            tab.line_number_area.setVisible(checked)
+            tab.update_line_number_area_width(0)
 
     def file_open(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Text Files (*.txt);;All Files ()")
@@ -381,7 +554,7 @@ class Notepad(QMainWindow):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     text = f.read()
-                tab = EditorTab(self)
+                tab = EditorTab(self, notepad=self)
                 tab.editor.setText(text)
                 tab.path = path
                 tab.filename = os.path.basename(path)
@@ -395,7 +568,7 @@ class Notepad(QMainWindow):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     text = f.read()
-                tab = EditorTab(self)
+                tab = EditorTab(self, notepad=self)
                 tab.editor.setText(text)
                 tab.path = path
                 tab.filename = os.path.basename(path)
@@ -509,7 +682,7 @@ class Notepad(QMainWindow):
         current_time = time.time()
         last_time = self.last_notification_time.get(filepath, 0)  # <<--- Add this dict in __init__
 
-        if current_time - last_time < 2:  # 2 second cooldown  <<--- Debounce check
+        if current_time - last_time < 600:  # 2 second cooldown  <<--- Debounce check
             print(f"DEBUG: Ignoring rapid change for {filepath}")
             return
         
@@ -611,6 +784,7 @@ class Notepad(QMainWindow):
         if tab:
             self.setWindowTitle(f"{tab.filename} - Notepad")
             tab.update_status()
+            tab.update_path_label()
             # Update watchdog menu item state
             self.watchdog_action.setChecked(tab.watchdog_enabled if tab.path else False)
 
@@ -653,6 +827,11 @@ def apply_dark_theme(app):
     app.setPalette(palette)
     app.setStyle("Fusion")
     
+    qss_path = os.path.join(app_base_dir(), "style", "style.qss")
+    with open(qss_path, "r") as f:
+        app.setStyleSheet(f.read())    
+        
+    '''
     app.setStyleSheet("""
     QMainWindow {
         background-color: #2e2e2e;
@@ -728,6 +907,7 @@ def apply_dark_theme(app):
         background: none;
     }
 """)
+    '''
 
 def get_content(arg):
     return arg

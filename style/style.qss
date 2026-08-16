@@ -1,0 +1,113 @@
+QMainWindow {
+    background-color: #2e2e2e;
+}
+QMenuBar, QMenu {
+    background-color: #2e2e2e;
+    color: #cc7722;
+}
+QTabWidget::pane {
+    border: 1px solid #cc7722;
+}
+QTabBar::tab {
+    background: #3a3a3a;
+    color: #cc7722;
+    padding: 6px;
+}
+QTabBar::tab:selected {
+    background: #444444;
+    border: 1px solid #cc7722;
+}
+/*
+QTextEdit {
+    font-family: 'Benguiat';
+    font-size: 28px;
+    border: 2px solid #222222;
+    padding: 10px;
+}
+*/
+
+QTextEdit[cssClass="textEditor"] {
+    font-family: 'Benguiat';
+    border: 2px solid #222222;
+    
+    padding: 0px 10px 10px 10px;
+    /* no font-size here — override in code */
+}
+
+QStatusBar {
+    background-color: #2e2e2e;
+    color: #cc7722;
+}
+QScrollBar:vertical {
+    background: #2e2e2e;
+    width: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #cc7722;
+    min-height: 25px;
+    border-radius: 4px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background: none;
+    height: 0px;
+    border: none;
+}
+QScrollBar::up-arrow, QScrollBar::down-arrow {
+    background: none;
+    color: none;
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+QScrollBar:horizontal {
+    background: #2e2e2e;
+    height: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:horizontal {
+    background: #cc7722;
+    min-width: 25px;
+    border-radius: 4px;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    background: none;
+    width: 0px;
+    border: none;
+}
+QScrollBar::left-arrow, QScrollBar::right-arrow {
+    background: none;
+    color: none;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}
+
+/* Line number area */
+QWidget#lineNumberArea {
+    background-color: #2e2e2e;
+    color: #cc7722;
+    
+}
+/* #cc7722*/
+QWidget[cssClass="lineNumbers"] {
+    font-size: 13px;
+    font-family: Arial;
+    color: #777777;
+}
+
+
+
+QLabel[cssClass="pathBar"] {
+    color: #cc7722;
+    padding-left: 8px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    /* normal style */
+}
+
+QLabel[cssClass="pathBar"]:hover {
+    color: #33bbbb;
+    font-weight: 600;
+    /* hover style */
+}
