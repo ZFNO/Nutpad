@@ -6,7 +6,7 @@
 *.srt
 chunk_*
 
-
+*.zip
 *.dist
 *.build
 *.dist/
