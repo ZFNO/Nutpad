@@ -226,7 +226,7 @@ class Notepad(QMainWindow):
     bringToFront = Signal(str)
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Notepad")
+        self.setWindowTitle("Nutpad")
         self.setGeometry(100, 100, 900, 700)
 
         self.tabs = QTabWidget()
