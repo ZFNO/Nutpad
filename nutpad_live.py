@@ -2,7 +2,8 @@ import re
 import socket
 import sys
 import os
-
+import hashlib
+import uuid
 
 import tempfile
 from datetime import datetime
@@ -118,6 +119,7 @@ class LineNumberArea(QWidget):
 class EditorTab(QWidget):
     def __init__(self, parent=None, notepad=None):    
         super().__init__(parent)
+        self.auto_id = uuid.uuid4().hex
         self.notepad = notepad
         self.editor = QTextEdit()
         self.editor.setProperty("cssClass", "textEditor")
@@ -172,6 +174,8 @@ class EditorTab(QWidget):
         self._apply_theme()
         self._set_word_wrap(True)
 
+
+
     def _apply_theme(self, bg="", fg=""):
         palette = self.editor.palette()
         if bg:
@@ -187,6 +191,14 @@ class EditorTab(QWidget):
         self.word_wrap = wrap
         self.editor.setLineWrapMode(QTextEdit.WidgetWidth if wrap else QTextEdit.NoWrap)
 
+
+    def autosave_path(self):
+        temp = tempfile.gettempdir()
+        if self.path:
+            h = hashlib.sha256(self.path.encode()).hexdigest()[:12]
+            return os.path.join(temp, f"nutpad_{h}.txt")
+        else:
+            return os.path.join(temp, f"nutpad_{self.auto_id}.txt")
 
     def copy_path_to_clipboard(self, event):
         
@@ -292,7 +304,7 @@ class EditorTab(QWidget):
             col = cursor.columnNumber() + 1
             self.notepad.status.showMessage(f"Ln {line}, Col {col}")
 
-    def autosave(self):
+    def xautosave(self):
         if self.editor.toPlainText().strip():
             temp_dir = tempfile.gettempdir()
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -300,6 +312,14 @@ class EditorTab(QWidget):
             temp_path = os.path.join(temp_dir, filename)
             try:
                 with open(temp_path, 'w', encoding='utf-8') as f:
+                    f.write(self.editor.toPlainText())
+            except Exception:
+                pass
+
+    def autosave(self):
+        if self.editor.toPlainText().strip():
+            try:
+                with open(self.autosave_path(), 'w', encoding='utf-8') as f:
                     f.write(self.editor.toPlainText())
             except Exception:
                 pass
@@ -586,7 +606,7 @@ class Notepad(QMainWindow):
             else:
                 self.file_save_as()
 
-    def file_save_as(self):
+    def file_save_asx(self):
         tab = self.current_tab()
         if tab:
             path, _ = QFileDialog.getSaveFileName(self, "Save File As", "", "Text Files (*.txt);;All Files ()")
@@ -599,6 +619,32 @@ class Notepad(QMainWindow):
                 tab.filename = os.path.basename(path)
                 self.save_file(tab)
                 
+                # Start watching new path if watchdog is enabled
+                if tab.watchdog_enabled:
+                    self.file_watcher.watch_file(tab.path)
+
+    def file_save_as(self):
+        tab = self.current_tab()
+        if tab:
+            old_autosave = tab.autosave_path()
+            path, _ = QFileDialog.getSaveFileName(self, "Save File As", "", "Text Files (*.txt);;All Files ()")
+            if path:
+                # Stop watching old path if enabled
+                if tab.path and tab.watchdog_enabled:
+                    self.file_watcher.unwatch_file(tab.path)
+    
+                tab.path = path
+                tab.filename = os.path.basename(path)
+    
+                # Delete old autosave if different
+                if old_autosave != tab.autosave_path():
+                    try:
+                        os.remove(old_autosave)
+                    except OSError:
+                        pass
+    
+                self.save_file(tab)
+    
                 # Start watching new path if watchdog is enabled
                 if tab.watchdog_enabled:
                     self.file_watcher.watch_file(tab.path)
