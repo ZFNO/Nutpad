@@ -397,6 +397,7 @@ class Notepad(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Nutpad")
+        self.version = "1.03b"
         self.setGeometry(100, 100, 900, 700)
 
         self.tabs = QTabWidget()
@@ -442,7 +443,8 @@ class Notepad(QMainWindow):
 
 
     def show_about(self):
-        QMessageBox.about(self, "About Notepad", "Version 1.03 A\nMade by Mark Laurence Ong.\n Github: ZFNO")
+        
+        QMessageBox.about(self, "About Notepad", f"Version {self.version} A\nMade by Mark Laurence Ong.\n Github: ZFNO")
 
     def current_tab(self) -> EditorTab:
         return self.tabs.currentWidget()
@@ -971,6 +973,11 @@ if __name__ == "__main__":
     arg = ""
     command = ""
 
+    def app_base_dir():
+        if getattr(sys, 'frozen', False):
+            return os.path.dirname(sys.executable)
+        return os.path.dirname(os.path.abspath(__file__))
+
     if len(sys.argv) > 1 and is_port_in_use(HOST, PORT):
         arg = get_content(sys.argv[1:])
         joined_list = ' '.join(arg)
@@ -982,8 +989,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     app = QApplication(sys.argv)
-
-    pixmap = QPixmap("assets/nutpad_splashscreen.png")
+    splash_path = os.path.join(app_base_dir(), "assets", "nutpad_splashscreen.png")
+    pixmap = QPixmap(splash_path)
     splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
     splash.show()
     ensure_benguiat_font()
